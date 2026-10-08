@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String
+  email     String     @unique
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  schedules Schedule[]
+
+  @@map("customers")
+}
+
+model Doctor {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  schedules Schedule[]
+
+  @@map("doctors")
+}
+
+model Schedule {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// tujuan konsultasi
+  objective   String
+  customerId  String   @map("customer_id") @db.Uuid
+  doctorId    String   @map("doctor_id") @db.Uuid
+  scheduledAt DateTime @map("scheduled_at") @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // Restrict: customer/dokter yang masih punya jadwal gak bisa dihapus
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  doctor   Doctor   @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+
+  // pengaman terakhir anti double booking, cek overlap-nya tetep di service
+  @@unique([doctorId, scheduledAt])
+  @@index([customerId])
+  @@index([scheduledAt])
+  @@map("schedules")
+}

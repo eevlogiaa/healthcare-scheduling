@@ -1,0 +1,74 @@
+# Generated from the running auth-service by introspection. Do not edit by hand.
+
+"""Result of a successful login."""
+type AuthPayload {
+  """JWT to send as `Authorization: Bearer <accessToken>`."""
+  accessToken: String!
+
+  """Token lifetime in seconds."""
+  expiresIn: Int!
+
+  """Always "Bearer"."""
+  tokenType: String!
+
+  """The authenticated user."""
+  user: User!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""Credentials used to obtain an access token."""
+input LoginInput {
+  """Registered email address (case-insensitive)."""
+  email: String!
+
+  """Account password."""
+  password: String!
+}
+
+type Mutation {
+  """Log in with email and password and receive a JWT access token."""
+  login(input: LoginInput!): AuthPayload!
+
+  """
+  Register a new user. Fails with CONFLICT if the email is already registered.
+  """
+  register(input: RegisterInput!): User!
+}
+
+type Query {
+  """
+  Validate an access token and return its owner. Fails with UNAUTHENTICATED when the token is invalid, expired or belongs to a user that no longer exists. Used by other services.
+  """
+  validateToken(
+    """The raw JWT, without the "Bearer " prefix."""
+    token: String!
+  ): User!
+}
+
+"""Payload for registering a new user."""
+input RegisterInput {
+  """Email address. Case-insensitive and must be unique."""
+  email: String!
+
+  """Plain-text password, 8 to 72 characters. Stored as a bcrypt hash."""
+  password: String!
+}
+
+"""A registered user. The password hash is never exposed."""
+type User {
+  """When the user registered."""
+  createdAt: DateTime!
+
+  """Unique, lower-cased email address."""
+  email: String!
+
+  """User ID (UUID v4)."""
+  id: ID!
+
+  """When the user was last updated."""
+  updatedAt: DateTime!
+}

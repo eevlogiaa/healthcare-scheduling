@@ -1,0 +1,16 @@
+# Override buat dev lokal: buka port infra ke host biar service bisa
+# dijalanin pake `npm run start:dev`.
+#
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis mailpit
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+
+  redis:
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+
+  mailpit:
+    ports:
+      - "${MAILPIT_SMTP_HOST_PORT:-1025}:1025"

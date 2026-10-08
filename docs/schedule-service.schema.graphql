@@ -1,0 +1,277 @@
+# Generated from the running schedule-service by introspection. Do not edit by hand.
+
+"""Payload for creating a customer."""
+input CreateCustomerInput {
+  """Email address. Case-insensitive and must be unique."""
+  email: String!
+
+  """Full name (1-100 characters)."""
+  name: String!
+}
+
+"""Payload for creating a doctor."""
+input CreateDoctorInput {
+  """Full name (1-100 characters)."""
+  name: String!
+}
+
+"""Payload for booking a consultation."""
+input CreateScheduleInput {
+  """ID of an existing customer."""
+  customerId: ID!
+
+  """ID of an existing doctor."""
+  doctorId: ID!
+
+  """Purpose of the consultation (1-500 characters)."""
+  objective: String!
+
+  """
+  Start time in ISO 8601 (e.g. "2030-01-15T09:00:00.000Z"). Must be in the future and must not overlap another consultation of the same doctor.
+  """
+  scheduledAt: DateTime!
+}
+
+"""A patient of the clinic."""
+type Customer {
+  """When the customer was created."""
+  createdAt: DateTime!
+
+  """Unique, lower-cased email address. Notifications are sent here."""
+  email: String!
+
+  """Customer ID (UUID)."""
+  id: ID!
+
+  """Full name."""
+  name: String!
+
+  """When the customer was last updated."""
+  updatedAt: DateTime!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""A doctor who can be booked for consultations."""
+type Doctor {
+  """When the doctor was created."""
+  createdAt: DateTime!
+
+  """Doctor ID (UUID)."""
+  id: ID!
+
+  """Full name."""
+  name: String!
+
+  """When the doctor was last updated."""
+  updatedAt: DateTime!
+}
+
+type Mutation {
+  """Create a customer. Fails with CONFLICT if the email is already used."""
+  createCustomer(input: CreateCustomerInput!): Customer!
+
+  """Create a doctor."""
+  createDoctor(input: CreateDoctorInput!): Doctor!
+
+  """
+  Book a consultation. Fails with NOT_FOUND for an unknown customer/doctor and with CONFLICT when the doctor already has an overlapping consultation. Emails the customer.
+  """
+  createSchedule(input: CreateScheduleInput!): Schedule!
+
+  """
+  Delete a customer and return it. Fails with CONFLICT while the customer still has schedules.
+  """
+  deleteCustomer(
+    """Customer ID."""
+    id: ID!
+  ): Customer!
+
+  """
+  Delete a doctor and return it. Fails with CONFLICT while the doctor still has schedules.
+  """
+  deleteDoctor(
+    """Doctor ID."""
+    id: ID!
+  ): Doctor!
+
+  """Cancel (delete) a schedule and return it. Emails the customer."""
+  deleteSchedule(
+    """Schedule ID."""
+    id: ID!
+  ): Schedule!
+
+  """Update a customer. Only provided fields change."""
+  updateCustomer(
+    """Customer ID."""
+    id: ID!
+    input: UpdateCustomerInput!
+  ): Customer!
+
+  """Update a doctor. Only provided fields change."""
+  updateDoctor(
+    """Doctor ID."""
+    id: ID!
+    input: UpdateDoctorInput!
+  ): Doctor!
+}
+
+"""Offset pagination metadata."""
+type PageInfo {
+  """Whether a page after this one exists."""
+  hasNextPage: Boolean!
+
+  """Whether a page before this one exists."""
+  hasPreviousPage: Boolean!
+
+  """Maximum number of items per page."""
+  limit: Int!
+
+  """Current page number (1-based)."""
+  page: Int!
+
+  """Total number of items matching the query."""
+  total: Int!
+
+  """Total number of pages."""
+  totalPages: Int!
+}
+
+"""A page of customers."""
+type PaginatedCustomers {
+  """Items on the current page."""
+  items: [Customer!]!
+
+  """Pagination metadata."""
+  pageInfo: PageInfo!
+}
+
+"""A page of doctors."""
+type PaginatedDoctors {
+  """Items on the current page."""
+  items: [Doctor!]!
+
+  """Pagination metadata."""
+  pageInfo: PageInfo!
+}
+
+"""A page of schedules."""
+type PaginatedSchedules {
+  """Items on the current page."""
+  items: [Schedule!]!
+
+  """Pagination metadata."""
+  pageInfo: PageInfo!
+}
+
+type Query {
+  """Get a customer by ID. Fails with NOT_FOUND."""
+  customer(
+    """Customer ID."""
+    id: ID!
+  ): Customer!
+
+  """List customers, newest first."""
+  customers(
+    """Number of items per page (1-100)."""
+    limit: Int! = 10
+
+    """Page number, starting at 1."""
+    page: Int! = 1
+  ): PaginatedCustomers!
+
+  """Get a doctor by ID. Fails with NOT_FOUND."""
+  doctor(
+    """Doctor ID."""
+    id: ID!
+  ): Doctor!
+
+  """List doctors, newest first."""
+  doctors(
+    """Number of items per page (1-100)."""
+    limit: Int! = 10
+
+    """Page number, starting at 1."""
+    page: Int! = 1
+  ): PaginatedDoctors!
+
+  """Get a schedule by ID. Fails with NOT_FOUND."""
+  schedule(
+    """Schedule ID."""
+    id: ID!
+  ): Schedule!
+
+  """List schedules ordered by start time, optionally filtered."""
+  schedules(
+    filter: ScheduleFilterInput
+
+    """Number of items per page (1-100)."""
+    limit: Int! = 10
+
+    """Page number, starting at 1."""
+    page: Int! = 1
+  ): PaginatedSchedules!
+}
+
+"""A consultation between a customer and a doctor."""
+type Schedule {
+  """When the schedule was created."""
+  createdAt: DateTime!
+
+  """The customer (patient)."""
+  customer: Customer!
+
+  """ID of the customer (patient)."""
+  customerId: ID!
+
+  """The doctor."""
+  doctor: Doctor!
+
+  """ID of the doctor."""
+  doctorId: ID!
+
+  """Schedule ID (UUID)."""
+  id: ID!
+
+  """Purpose of the consultation."""
+  objective: String!
+
+  """Start time of the consultation."""
+  scheduledAt: DateTime!
+
+  """When the schedule was last updated."""
+  updatedAt: DateTime!
+}
+
+"""Filters for listing schedules. All filters are combined with AND."""
+input ScheduleFilterInput {
+  """Only schedules of this customer."""
+  customerId: ID
+
+  """Only schedules with this doctor."""
+  doctorId: ID
+
+  """Only schedules starting at or after this time."""
+  from: DateTime
+
+  """Only schedules starting at or before this time."""
+  to: DateTime
+}
+
+"""Fields to change on a customer. Omitted fields are left unchanged."""
+input UpdateCustomerInput {
+  """New email address. Must be unique."""
+  email: String
+
+  """New full name (1-100 characters)."""
+  name: String
+}
+
+"""Fields to change on a doctor. Omitted fields are left unchanged."""
+input UpdateDoctorInput {
+  """New full name (1-100 characters)."""
+  name: String
+}

@@ -1,0 +1,120 @@
+name: healthcare-scheduling
+
+# nilai diambil dari .env di folder ini (copy dulu dari .env.example)
+x-redis-env: &redis-env
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - healthcare-net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - healthcare-net
+
+  # SMTP lokal, semua email nyangkut di sini. UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_HOST_PORT:-8025}:8025"
+    networks:
+      - healthcare-net
+
+  auth-service:
+    build: ./auth-service
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/auth_db?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      GRAPHQL_PLAYGROUND: ${GRAPHQL_PLAYGROUND:-true}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - healthcare-net
+
+  schedule-service:
+    build: ./schedule-service
+    restart: unless-stopped
+    environment:
+      <<: *redis-env
+      PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/schedule_db?schema=public
+      AUTH_SERVICE_URL: http://auth-service:3001
+      AUTH_REQUEST_TIMEOUT_MS: ${AUTH_REQUEST_TIMEOUT_MS:-5000}
+      AUTH_CACHE_TTL_SECONDS: ${AUTH_CACHE_TTL_SECONDS:-60}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-60}
+      SCHEDULE_DURATION_MINUTES: ${SCHEDULE_DURATION_MINUTES:-30}
+      GRAPHQL_PLAYGROUND: ${GRAPHQL_PLAYGROUND:-true}
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    networks:
+      - healthcare-net
+
+  notification-service:
+    build: ./notification-service
+    restart: unless-stopped
+    environment:
+      <<: *redis-env
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-Healthcare Clinic <no-reply@healthcare.local>}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Jakarta}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
+    depends_on:
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - healthcare-net
+
+networks:
+  healthcare-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
